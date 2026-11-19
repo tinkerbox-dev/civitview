@@ -126,7 +126,7 @@ async function probeAll(items, signal, conc = 8) {
     while (q.length && !signal?.aborted) await probeDuration(q.shift(), signal);
   }));
 }
-const DUR_RANGES = { short: [0, 5.5], mid: [5.5, 10.5], long: [10.5, Infinity], vlong: [20.5, Infinity] };
+const DUR_RANGES = { short: [0, 5.5], mid: [5.5, 10.5], long: [10.5, Infinity], vlong: [20.5, Infinity], xlong: [45, Infinity] };
 const durActive = () => $('#imgType').value === 'video' && !!DUR_RANGES[$('#imgDur').value];
 
 /* ---------- Feed genérico con scroll infinito ---------- */
