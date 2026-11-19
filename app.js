@@ -49,7 +49,7 @@ async function copy(text) {
 
 /* ---------- estado ---------- */
 const S = {
-  mask: store.get('mask', { None: 1, Soft: 3, Mature: 7, X: ALL }[store.get('level', 'X')] || ALL),
+  mask: store.get('mask', 1),                    // por defecto solo Apto
   blur: store.get('blur', false),
   imgF: store.get('imgF', {}),
   modF: store.get('modF', {}),
