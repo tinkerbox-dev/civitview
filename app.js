@@ -94,6 +94,41 @@ const videoObs = new IntersectionObserver(entries => {
   }
 }, { rootMargin: '200px' });
 
+/* ---------- duración de vídeos ---------- */
+// La API no da la duración; se lee de la cabecera del vídeo (pocos KB) y se guarda.
+const durCache = new Map();
+const fmtDur = d => isFinite(d) ? `${Math.floor(d / 60)}:${String(Math.round(d % 60)).padStart(2, '0')}` : '';
+function probeDuration(it, signal) {
+  if (durCache.has(it.id)) return Promise.resolve(durCache.get(it.id));
+  return new Promise(res => {
+    const v = document.createElement('video');
+    let done = false;
+    const end = d => {
+      if (done) return; done = true;
+      clearTimeout(t); signal?.removeEventListener('abort', stop);
+      v.removeAttribute('src'); v.load();
+      if (!isFinite(d) || d <= 0) d = +it.meta?.duration || NaN;
+      if (isFinite(d)) durCache.set(it.id, d);
+      res(d);
+    };
+    const stop = () => end(NaN);
+    const t = setTimeout(stop, 8000);
+    signal?.addEventListener('abort', stop);
+    v.preload = 'metadata'; v.muted = true;
+    v.onloadedmetadata = () => end(v.duration);
+    v.onerror = stop;
+    v.src = media(it.url, thumbW(), 'video');
+  });
+}
+async function probeAll(items, signal, conc = 8) {
+  const q = items.filter(it => it.type === 'video' && !durCache.has(it.id));
+  await Promise.all(Array.from({ length: Math.min(conc, q.length) }, async () => {
+    while (q.length && !signal?.aborted) await probeDuration(q.shift(), signal);
+  }));
+}
+const DUR_RANGES = { short: [0, 5.5], mid: [5.5, 10.5], long: [10.5, Infinity], vlong: [20.5, Infinity] };
+const durActive = () => $('#imgType').value === 'video' && !!DUR_RANGES[$('#imgDur').value];
+
 /* ---------- Feed genérico con scroll infinito ---------- */
 class Feed {
   constructor(root, { load, render, filter = () => true, ratio, minPerLoad = 14 }) {
@@ -180,7 +215,11 @@ function imageTile(it, idx, feed, list) {
   if (it.type === 'video') {
     const v = h('video', { muted: true, loop: true, playsinline: true, preload: 'none', 'data-src': media(it.url, thumbW(), 'video') });
     v.muted = true;
-    el.append(v, h('span', { class: 'badge' }, '▶ Vídeo'));
+    const badge = h('span', { class: 'badge' }, durCache.has(it.id) ? '▶ ' + fmtDur(durCache.get(it.id)) : '▶ Vídeo');
+    v.addEventListener('loadedmetadata', () => {
+      if (isFinite(v.duration) && v.duration > 0) { durCache.set(it.id, v.duration); badge.textContent = '▶ ' + fmtDur(v.duration); }
+    });
+    el.append(v, badge);
     videoObs.observe(v);
   } else {
     el.append(h('img', { src: media(it.url, thumbW()), loading: 'lazy', decoding: 'async', alt: '' }));
@@ -229,6 +268,10 @@ function imageFilter(it) {
   if (it.baseModel) seenBaseModels.add(it.baseModel);
   const f = S.imgF, type = $('#imgType').value;
   if (type !== 'all' && it.type !== type) return false;
+  if (durActive()) {
+    const d = durCache.get(it.id), [lo, hi] = DUR_RANGES[$('#imgDur').value];
+    if (!(d >= lo && d < hi)) return false;
+  }
   if (f.baseModel && it.baseModel !== f.baseModel) return false;
   if (f.orient) {
     const r = (it.width || 1) / (it.height || 1);
@@ -268,7 +311,7 @@ const activeCount = f => Object.entries(f).filter(([, v]) => v && v !== '0').len
 
 /* ---------- feeds principales ---------- */
 // selects: restaurar y guardar
-for (const id of ['imgSort', 'imgPeriod', 'imgType', 'modSort', 'modPeriod', 'modType', 'modMedia']) {
+for (const id of ['imgSort', 'imgPeriod', 'imgType', 'imgDur', 'modSort', 'modPeriod', 'modType', 'modMedia']) {
   const el = $('#' + id);
   if (S.sel[id]) el.value = S.sel[id];
   if (!el.value) el.selectedIndex = id === 'imgPeriod' ? 1 : 0;
@@ -278,6 +321,8 @@ for (const id of ['imgSort', 'imgPeriod', 'imgType', 'modSort', 'modPeriod', 'mo
   });
 }
 if (!S.sel.imgPeriod) $('#imgPeriod').value = 'Week';
+const showDur = () => { $('#imgDur').hidden = $('#imgType').value !== 'video'; };
+$('#imgType').addEventListener('change', showDur); showDur();
 if (!S.sel.modPeriod) $('#modPeriod').value = 'Month';
 
 const imgView = $('#view-images'), modView = $('#view-models'), detailView = $('#view-detail');
@@ -291,6 +336,7 @@ const imagesFeed = new Feed($('.feed', imgView), {
       type: $('#imgType').value === 'all' ? '' : $('#imgType').value,
       withMeta: true, cursor,
     }, signal);
+    if (durActive()) await probeAll(d.items || [], signal);
     return { items: d.items || [], next: d.metadata?.nextCursor };
   },
 });

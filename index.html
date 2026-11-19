@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 <title>CivitView</title>
 </head>
 <body>
@@ -49,6 +49,13 @@
         <option value="all">Todo</option>
         <option value="image">Solo imágenes</option>
         <option value="video">Solo vídeos</option>
+      </select>
+      <select id="imgDur" aria-label="Duración" hidden>
+        <option value="">Cualquier duración</option>
+        <option value="short">Hasta 5 s</option>
+        <option value="mid">De 6 a 10 s</option>
+        <option value="long">Más de 10 s</option>
+        <option value="vlong">Más de 20 s</option>
       </select>
       <button type="button" class="more-btn" data-more="images">Más filtros</button>
     </div>
@@ -216,6 +223,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
