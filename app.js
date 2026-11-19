@@ -131,8 +131,9 @@ const durActive = () => $('#imgType').value === 'video' && !!DUR_RANGES[$('#imgD
 
 /* ---------- Feed genérico con scroll infinito ---------- */
 class Feed {
-  constructor(root, { load, render, filter = () => true, ratio, minPerLoad = 14, prep = null }) {
-    Object.assign(this, { root, load, render, filter, ratio, minPerLoad, prep });
+  // target: seguir buscando sin esperar al scroll hasta tener al menos tantos resultados
+  constructor(root, { load, render, filter = () => true, ratio, minPerLoad = 14, prep = null, target = 0 }) {
+    Object.assign(this, { root, load, render, filter, ratio, minPerLoad, prep, target });
     this.status = h('div', { class: 'status' });
     this.sentinel = h('div', { style: { height: '1px' } });
     this.io = new IntersectionObserver(es => { if (es[0].isIntersecting) this.more(); }, { rootMargin: '1500px' });
@@ -143,6 +144,7 @@ class Feed {
     this.ctrl = new AbortController();
     this.items = []; this.raw = []; this.ids = new Set(); this.cursor = null; this.done = false; this.loading = false;
     this.needsRefilter = false;
+    this.startHunt();
     this.grid = null;
     this.layout();
     put(this.root, this.grid, this.status, this.sentinel);
@@ -163,12 +165,15 @@ class Feed {
     this.items.forEach((it, i) => this.append(it, i));
   }
   visible() { return this.root.offsetParent !== null; }
+  startHunt() { this.scanStart = this.raw.length; this.budget = 10000; this.paused = false; }
+  hunting() { return this.items.length < this.target; }
   // aplicar de nuevo los filtros locales a lo ya descargado, sin volver a pedirlo
   async refilter(toTop = true) {
     this.ctrl?.abort();
     this.ctrl = new AbortController();
     const signal = this.ctrl.signal;
     this.loading = false; this.needsRefilter = false;
+    this.startHunt();
     if (this.prep && this.raw.length) {
       this.loading = true; this.status.textContent = 'Aplicando filtro…';
       await this.prep(this.raw, signal);
@@ -183,13 +188,15 @@ class Feed {
     this.more();             // completar si han quedado pocas
   }
   async more() {
-    if (this.loading || this.done || !this.visible()) return;
+    if (this.loading || this.done || this.paused || !this.visible()) return;
     this.loading = true;
     const signal = this.ctrl.signal;
     this.status.textContent = 'Cargando…';
     let added = 0, pages = 0;
+    const scanned = () => this.raw.length - this.scanStart;
+    const keepGoing = () => this.hunting() ? scanned() < this.budget : (added < this.minPerLoad && pages < 8);
     try {
-      while (added < this.minPerLoad && !this.done && pages < 8) {
+      while (!this.done && keepGoing()) {
         const { items, next } = await this.load(this.cursor, signal);
         if (signal.aborted) return;
         if (this.prep) { await this.prep(items, signal); if (signal.aborted) return; }
@@ -205,6 +212,8 @@ class Feed {
           this.append(it, this.items.length - 1);
           added++;
         }
+        if (this.hunting() && !this.done)
+          this.status.textContent = `Buscando… ${this.items.length} encontrados · ${scanned().toLocaleString('es')} revisados`;
       }
     } catch (e) {
       if (signal.aborted) return;
@@ -215,6 +224,12 @@ class Feed {
     }
     this.loading = false;
     this.status.textContent = this.done ? (this.items.length ? 'No hay más' : 'Sin resultados con estos filtros') : '';
+    if (!this.done && this.hunting()) {   // tope de seguridad: preguntar antes de seguir
+      this.paused = true;
+      put(this.status, `${this.items.length} encontrados tras revisar ${scanned().toLocaleString('es')}`, h('br'),
+        h('button', { class: 'btn', onclick: () => { this.budget += 10000; this.paused = false; this.more(); } }, 'Buscar más'));
+      return;
+    }
     // si el centinela sigue a la vista, seguir cargando
     if (!this.done && this.sentinel.getBoundingClientRect().top < innerHeight + 1500) this.more();
   }
@@ -355,7 +370,7 @@ if (!S.sel.modPeriod) $('#modPeriod').value = 'Month';
 const imgView = $('#view-images'), modView = $('#view-models'), detailView = $('#view-detail');
 
 const imagesFeed = new Feed($('.feed', imgView), {
-  ratio: imgRatio, filter: imageFilter,
+  ratio: imgRatio, filter: imageFilter, target: 200,
   prep: (items, signal) => durActive() ? probeAll(items, signal) : null,
   render: (it, idx, feed) => imageTile(it, idx, feed),
   load: async (cursor, signal) => {
@@ -369,7 +384,7 @@ const imagesFeed = new Feed($('.feed', imgView), {
 });
 
 const modelsFeed = new Feed($('.feed', modView), {
-  ratio: () => 4 / 3, filter: modelFilter, minPerLoad: 12,
+  ratio: () => 4 / 3, filter: modelFilter, minPerLoad: 12, target: 200,
   render: m => modelTile(m),
   load: async (cursor, signal) => {
     const q = $('#searchInput').value.trim();
