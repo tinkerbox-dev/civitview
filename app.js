@@ -131,8 +131,8 @@ const durActive = () => $('#imgType').value === 'video' && !!DUR_RANGES[$('#imgD
 
 /* ---------- Feed genérico con scroll infinito ---------- */
 class Feed {
-  constructor(root, { load, render, filter = () => true, ratio, minPerLoad = 14 }) {
-    Object.assign(this, { root, load, render, filter, ratio, minPerLoad });
+  constructor(root, { load, render, filter = () => true, ratio, minPerLoad = 14, prep = null }) {
+    Object.assign(this, { root, load, render, filter, ratio, minPerLoad, prep });
     this.status = h('div', { class: 'status' });
     this.sentinel = h('div', { style: { height: '1px' } });
     this.io = new IntersectionObserver(es => { if (es[0].isIntersecting) this.more(); }, { rootMargin: '1500px' });
@@ -141,7 +141,8 @@ class Feed {
   reset() {
     this.ctrl?.abort();
     this.ctrl = new AbortController();
-    this.items = []; this.ids = new Set(); this.cursor = null; this.done = false; this.loading = false;
+    this.items = []; this.raw = []; this.ids = new Set(); this.cursor = null; this.done = false; this.loading = false;
+    this.needsRefilter = false;
     this.grid = null;
     this.layout();
     put(this.root, this.grid, this.status, this.sentinel);
@@ -162,6 +163,25 @@ class Feed {
     this.items.forEach((it, i) => this.append(it, i));
   }
   visible() { return this.root.offsetParent !== null; }
+  // aplicar de nuevo los filtros locales a lo ya descargado, sin volver a pedirlo
+  async refilter(toTop = true) {
+    this.ctrl?.abort();
+    this.ctrl = new AbortController();
+    const signal = this.ctrl.signal;
+    this.loading = false; this.needsRefilter = false;
+    if (this.prep && this.raw.length) {
+      this.loading = true; this.status.textContent = 'Aplicando filtro…';
+      await this.prep(this.raw, signal);
+      if (signal.aborted) return;
+      this.loading = false;
+    }
+    this.items = this.raw.filter(it => this.filter(it));
+    this.layout();
+    this.items.forEach((it, i) => this.append(it, i));
+    this.status.textContent = this.done ? (this.items.length ? 'No hay más' : 'Sin resultados con estos filtros') : '';
+    if (toTop && this.visible()) scrollTo(0, 0);
+    this.more();             // completar si han quedado pocas
+  }
   async more() {
     if (this.loading || this.done || !this.visible()) return;
     this.loading = true;
@@ -172,12 +192,14 @@ class Feed {
       while (added < this.minPerLoad && !this.done && pages < 8) {
         const { items, next } = await this.load(this.cursor, signal);
         if (signal.aborted) return;
+        if (this.prep) { await this.prep(items, signal); if (signal.aborted) return; }
         pages++;
         this.cursor = next;
         if (!next || !items.length) this.done = true;
         for (const it of items) {
           if (this.ids.has(it.id)) continue;
           this.ids.add(it.id);
+          this.raw.push(it);
           if (!this.filter(it)) continue;
           this.items.push(it);
           this.append(it, this.items.length - 1);
@@ -315,9 +337,14 @@ for (const id of ['imgSort', 'imgPeriod', 'imgType', 'imgDur', 'modSort', 'modPe
   const el = $('#' + id);
   if (S.sel[id]) el.value = S.sel[id];
   if (!el.value) el.selectedIndex = id === 'imgPeriod' ? 1 : 0;
+  let prev = el.value;
   el.addEventListener('change', () => {
     S.sel[id] = el.value; store.set('sel', S.sel);
-    (id.startsWith('img') ? imagesFeed : modelsFeed).reset();
+    const feed = id.startsWith('img') ? imagesFeed : modelsFeed;
+    // «Solo vídeo» en modelos cambia lo que se pide a la API (salvo con modelo base fijado)
+    const local = id === 'imgDur' || (id === 'modMedia' && (S.modF.baseModel || (prev !== 'video' && el.value !== 'video')));
+    prev = el.value;
+    local ? feed.refilter() : feed.reset();
   });
 }
 if (!S.sel.imgPeriod) $('#imgPeriod').value = 'Week';
@@ -329,6 +356,7 @@ const imgView = $('#view-images'), modView = $('#view-models'), detailView = $('
 
 const imagesFeed = new Feed($('.feed', imgView), {
   ratio: imgRatio, filter: imageFilter,
+  prep: (items, signal) => durActive() ? probeAll(items, signal) : null,
   render: (it, idx, feed) => imageTile(it, idx, feed),
   load: async (cursor, signal) => {
     const d = await api('/images', {
@@ -336,7 +364,6 @@ const imagesFeed = new Feed($('.feed', imgView), {
       type: $('#imgType').value === 'all' ? '' : $('#imgType').value,
       withMeta: true, cursor,
     }, signal);
-    if (durActive()) await probeAll(d.items || [], signal);
     return { items: d.items || [], next: d.metadata?.nextCursor };
   },
 });
@@ -384,12 +411,17 @@ function setupFilterDialog(dlg, key, feed, btn) {
   };
   const mark = () => { const n = activeCount(S[key]); btn.textContent = n ? `Más filtros (${n})` : 'Más filtros'; btn.classList.toggle('on', !!n); };
   btn.addEventListener('click', () => { fill(); dlg.showModal(); });
-  $('[data-reset]', form).addEventListener('click', () => { S[key] = {}; store.set(key, {}); mark(); dlg.close(); feed.reset(); });
+  const apply = f => {
+    const server = key === 'modF' && (f.baseModel || '') !== (S.modF.baseModel || '');
+    S[key] = f; store.set(key, f); mark();
+    server ? feed.reset() : feed.refilter();
+  };
+  $('[data-reset]', form).addEventListener('click', () => { dlg.close('reset'); apply({}); });
   dlg.addEventListener('close', () => {
     if (dlg.returnValue !== 'ok') return;
     const f = {};
     for (const el of form.elements) if (el.name) f[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim();
-    S[key] = f; store.set(key, f); mark(); feed.reset();
+    apply(f);
   });
   mark();
 }
@@ -586,6 +618,7 @@ const Viewer = {
     this.el.hidden = true; document.body.classList.remove('no-scroll');
     put(this.track, ); this.sheet.hidden = true; this.bar.hidden = true;
     cancelAnimationFrame(this.raf);
+    if (imagesFeed.needsRefilter && imagesFeed.visible()) imagesFeed.refilter(false);
   },
   go(hash) { this.after = hash; history.back(); },
   slide(i) {
@@ -663,7 +696,7 @@ const Viewer = {
         it.username ? h('button', { class: 'btn', onclick: () => {
           const cur = lines(S.imgF.hidden);
           if (!cur.includes(lc(it.username))) { S.imgF.hidden = [...cur, lc(it.username)].join('\n'); store.set('imgF', S.imgF); }
-          toast('@' + it.username + ' oculto'); imagesFeed.dirty = true;
+          toast('@' + it.username + ' oculto'); imagesFeed.needsRefilter = true;
           $('[data-more=images]').textContent = `Más filtros (${activeCount(S.imgF)})`; $('[data-more=images]').classList.add('on');
         } }, 'Ocultar usuario') : null),
       meta.prompt ? [h('h4', {}, 'Prompt', h('button', { onclick: () => copy(meta.prompt) }, 'Copiar')), h('div', { class: 'prompt' }, meta.prompt)] : h('p', { style: { color: 'var(--muted)' } }, 'Sin prompt público.'),
@@ -798,7 +831,9 @@ function route(force) {
   } else {
     if (section !== 'images') { location.replace('#/images'); return; }
     setTitle('Imágenes', false);
-    if (imagesFeed.dirty) imagesFeed.reset(); else if (!imagesFeed.items.length) imagesFeed.more();
+    if (imagesFeed.dirty) imagesFeed.reset();
+    else if (imagesFeed.needsRefilter) imagesFeed.refilter(false);
+    else if (!imagesFeed.items.length) imagesFeed.more();
     restore();
   }
 }
