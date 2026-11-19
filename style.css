@@ -158,7 +158,22 @@ details.desc .body img { max-width: 100%; height: auto; border-radius: 8px; }
   display: flex; align-items: center; justify-content: space-between;
   background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; transition: opacity .2s;
 }
-#viewer.chrome-off .v-top { opacity: 0; pointer-events: none; }
+#viewer.chrome-off .v-top, #viewer.chrome-off .v-bar { opacity: 0; pointer-events: none; }
+.v-bar {
+  position: absolute; inset: auto 0 0 0; padding: 24px 6px calc(var(--safe-b) + 6px);
+  display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(transparent, rgba(0,0,0,.65)); transition: opacity .2s;
+}
+.v-sheet:not([hidden]) ~ .v-bar { display: none; }
+.v-bar .v-time, .v-bar .v-dur { min-width: 34px; text-align: center; color: #ddd; }
+.v-seek { flex: 1; height: 36px; position: relative; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+.v-seek-rail { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.3); overflow: hidden; }
+.v-seek-fill { height: 100%; width: 0; background: var(--accent); }
+.v-seek-knob { position: absolute; left: 0; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; pointer-events: none; }
+.v-seek.drag .v-seek-rail { height: 6px; }
+.v-play .i-play, .v-play.paused .i-pause, .v-mute .i-sound, .v-mute.on .i-muted { display: none; }
+.v-play.paused .i-play, .v-mute.on .i-sound { display: block; }
+.v-play .i-play { fill: currentColor; }
 .v-count { font-size: 13px; color: #ddd; }
 .v-sheet {
   position: absolute; inset: auto 0 0 0; max-height: 62vh; overflow-y: auto; touch-action: pan-y;

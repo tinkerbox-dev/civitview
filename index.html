@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 <title>CivitView</title>
 </head>
 <body>
@@ -128,6 +128,19 @@
     <button class="icon-btn v-info-btn" aria-label="Información"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
   </div>
   <div class="v-sheet" hidden></div>
+  <div class="v-bar" hidden>
+    <button class="icon-btn v-play" aria-label="Pausar">
+      <svg class="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+      <svg class="i-play" viewBox="0 0 24 24"><path d="M7 4.5l12 7.5-12 7.5z"/></svg>
+    </button>
+    <span class="v-time">0:00</span>
+    <div class="v-seek" role="slider" aria-label="Posición del vídeo"><div class="v-seek-rail"><div class="v-seek-fill"></div></div><div class="v-seek-knob"></div></div>
+    <span class="v-dur">0:00</span>
+    <button class="icon-btn v-mute" aria-label="Activar sonido">
+      <svg class="i-muted" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9l5 6M22 9l-5 6"/></svg>
+      <svg class="i-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/></svg>
+    </button>
+  </div>
 </div>
 
 <!-- Selector de nivel -->
@@ -223,6 +236,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

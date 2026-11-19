@@ -571,18 +571,21 @@ async function renderUser(name, tab) {
 const versionCache = new Map();
 const Viewer = {
   el: $('#viewer'), track: $('#viewer .v-track'), sheet: $('#viewer .v-sheet'), count: $('#viewer .v-count'),
-  list: [], idx: 0, feed: null, after: null,
+  bar: $('#viewer .v-bar'), list: [], idx: 0, feed: null, after: null, sound: false,
+  cur() { return this.track.children[1]?.querySelector('video') || null; },
   open(list, idx, feed) {
     this.list = list; this.idx = idx; this.feed = feed;
     this.el.hidden = false; this.el.classList.remove('chrome-off'); this.sheet.hidden = true;
     document.body.classList.add('no-scroll');
     history.pushState({ viewer: 1 }, '', location.href);
     this.build();
+    this.tick();
   },
   close() { if (!this.el.hidden) history.back(); },
   hide() {
     this.el.hidden = true; document.body.classList.remove('no-scroll');
-    put(this.track, ); this.sheet.hidden = true;
+    put(this.track, ); this.sheet.hidden = true; this.bar.hidden = true;
+    cancelAnimationFrame(this.raf);
   },
   go(hash) { this.after = hash; history.back(); },
   slide(i) {
@@ -597,10 +600,32 @@ const Viewer = {
     this.track.style.transition = 'none';
     this.track.style.transform = 'translateX(-100vw)';
     put(this.track, this.slide(this.idx - 1), this.slide(this.idx), this.slide(this.idx + 1));
-    const cur = this.track.children[1].querySelector('video'); if (cur) cur.play().catch(() => {});
+    const cur = this.cur();
+    this.bar.hidden = !cur;
+    if (cur) {
+      cur.muted = !this.sound;
+      cur.onplay = cur.onpause = () => $('.v-play').classList.toggle('paused', cur.paused);
+      cur.ontimeupdate = cur.onseeked = cur.onloadedmetadata = () => this.tick();
+      cur.play().catch(() => { cur.muted = true; this.sound = false; this.syncMute(); cur.play().catch(() => {}); });
+      this.syncMute();
+    }
     this.count.textContent = `${this.idx + 1} / ${this.list.length}${this.feed && !this.feed.done ? '+' : ''}`;
     if (!this.sheet.hidden) this.info();
     if (this.feed && this.idx > this.list.length - 6) this.feed.more();
+  },
+  syncMute() { const b = $('.v-mute'); b.classList.toggle('on', this.sound); b.setAttribute('aria-label', this.sound ? 'Silenciar' : 'Activar sonido'); },
+  tick() {                       // línea de tiempo: actualizar mientras el visor está abierto
+    cancelAnimationFrame(this.raf);
+    const v = this.cur();
+    if (v && !this.bar.hidden) {
+      const d = v.duration, t = v.currentTime, f = isFinite(d) && d > 0 ? Math.min(1, t / d) : 0;
+      $('.v-seek-fill').style.width = f * 100 + '%';
+      $('.v-seek-knob').style.left = f * 100 + '%';
+      $('.v-time').textContent = fmtDur(t) || '0:00';
+      $('.v-dur').textContent = fmtDur(d) || '–:––';
+      $('.v-play').classList.toggle('paused', v.paused);
+    }
+    if (!this.el.hidden) this.raf = requestAnimationFrame(() => this.tick());
   },
   step(d) {
     const n = this.idx + d;
@@ -664,6 +689,33 @@ const Viewer = {
   },
 };
 $('.v-close').addEventListener('click', () => Viewer.close());
+$('.v-play').addEventListener('click', () => { const v = Viewer.cur(); if (v) v.paused ? v.play().catch(() => {}) : v.pause(); });
+$('.v-mute').addEventListener('click', () => {
+  Viewer.sound = !Viewer.sound; Viewer.syncMute();
+  const v = Viewer.cur(); if (v) { v.muted = !Viewer.sound; if (v.paused) v.play().catch(() => {}); }
+});
+(() => {                         // arrastrar en la línea de tiempo
+  const seek = $('.v-seek');
+  let wasPlaying = false;
+  const to = e => {
+    const v = Viewer.cur(); if (!v || !isFinite(v.duration)) return;
+    const r = seek.getBoundingClientRect();
+    v.currentTime = Math.min(Math.max((e.clientX - r.left) / r.width, 0), 0.999) * v.duration;
+    Viewer.tick();
+  };
+  seek.addEventListener('pointerdown', e => {
+    const v = Viewer.cur(); if (!v) return;
+    seek.setPointerCapture(e.pointerId); seek.classList.add('drag');
+    wasPlaying = !v.paused; v.pause(); to(e);
+  });
+  seek.addEventListener('pointermove', e => { if (seek.classList.contains('drag')) to(e); });
+  const up = () => {
+    if (!seek.classList.contains('drag')) return;
+    seek.classList.remove('drag');
+    if (wasPlaying) Viewer.cur()?.play().catch(() => {});
+  };
+  seek.addEventListener('pointerup', up); seek.addEventListener('pointercancel', up);
+})();
 $('.v-info-btn').addEventListener('click', () => { if (Viewer.sheet.hidden) Viewer.info(); else Viewer.sheet.hidden = true; });
 
 // gestos en el visor
@@ -671,7 +723,7 @@ $('.v-info-btn').addEventListener('click', () => { if (Viewer.sheet.hidden) View
   let x0 = 0, y0 = 0, dx = 0, dy = 0, t0 = 0, active = false, axis = null;
   const el = Viewer.el;
   el.addEventListener('pointerdown', e => {
-    if (e.target.closest('.v-sheet, .v-top')) return;
+    if (e.target.closest('.v-sheet, .v-top, .v-bar')) return;
     active = true; axis = null; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; t0 = Date.now();
   });
   el.addEventListener('pointermove', e => {
