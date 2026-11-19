@@ -1,5 +1,5 @@
 // Service worker mínimo: guarda la "carcasa" de la app; la API y las imágenes siempre van a la red.
-const CACHE = 'ojeo-v1';
+const CACHE = 'civitview-v1';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

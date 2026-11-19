@@ -1,6 +1,6 @@
 {
-  "name": "Ojeo",
-  "short_name": "Ojeo",
+  "name": "CivitView",
+  "short_name": "CivitView",
   "description": "Cliente móvil no oficial para ojear Civitai",
   "start_url": "./#/images",
   "scope": "./",

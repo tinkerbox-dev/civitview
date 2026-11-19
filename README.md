@@ -1,4 +1,4 @@
-# Ojeo
+# CivitView
 
 Cliente web no oficial, pensado para el móvil, para ojear Civitai (imágenes y modelos). Solo lectura: usa la API pública de Civitai y no necesita cuenta.
 

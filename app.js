@@ -1,5 +1,5 @@
 'use strict';
-/* Ojeo — cliente móvil no oficial para ojear Civitai (solo lectura, API pública). */
+/* CivitView — cliente móvil no oficial para ojear Civitai (solo lectura, API pública). */
 
 const API = 'https://civitai.com/api/v1';
 // Niveles de Civitai como bits: 1 PG · 2 PG-13 · 4 R · 8 X · 16 XXX
@@ -29,8 +29,8 @@ const h = (tag, attrs = {}, ...kids) => {
 };
 const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
 const store = {
-  get(k, d) { try { const v = localStorage.getItem('ojeo.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('ojeo.' + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
+  get(k, d) { try { const v = localStorage.getItem('civitview.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('civitview.' + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
 };
 const nf = new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 });
 const fmt = n => nf.format(n || 0);
