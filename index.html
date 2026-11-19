@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101114">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Cliente móvil no oficial para ojear Civitai">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ojeo">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css?v=5">
+<title>Ojeo</title>
+</head>
+<body>
+<header id="topbar">
+  <button id="backBtn" class="icon-btn" aria-label="Atrás" hidden>
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <h1 id="title">Imágenes</h1>
+  <button id="colsBtn" class="icon-btn" aria-label="Columnas">
+    <svg class="ic-1" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/></svg>
+    <svg class="ic-2" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="18" rx="2"/><rect x="13.5" y="3" width="7.5" height="18" rx="2"/></svg>
+  </button>
+  <button id="levelBtn" class="level-chip" aria-label="Nivel de contenido"></button>
+</header>
+
+<main>
+  <!-- Feed de imágenes -->
+  <section id="view-images" class="view">
+    <div class="filters">
+      <select id="imgSort" aria-label="Orden">
+        <option value="Most Reactions">Más reacciones</option>
+        <option value="Most Comments">Más comentadas</option>
+        <option value="Most Collected">Más guardadas</option>
+        <option value="Newest">Más nuevas</option>
+      </select>
+      <select id="imgPeriod" aria-label="Periodo">
+        <option value="Day">Hoy</option>
+        <option value="Week">Semana</option>
+        <option value="Month">Mes</option>
+        <option value="Year">Año</option>
+        <option value="AllTime">Siempre</option>
+      </select>
+      <select id="imgType" aria-label="Tipo">
+        <option value="all">Todo</option>
+        <option value="image">Solo imágenes</option>
+        <option value="video">Solo vídeos</option>
+      </select>
+      <button type="button" class="more-btn" data-more="images">Más filtros</button>
+    </div>
+    <div class="feed"></div>
+  </section>
+
+  <!-- Modelos -->
+  <section id="view-models" class="view" hidden>
+    <form id="searchForm" class="search">
+      <input id="searchInput" type="search" placeholder="Buscar modelos o @usuario" enterkeyhint="search" autocomplete="off">
+    </form>
+    <div class="filters">
+      <select id="modSort" aria-label="Orden">
+        <option value="Highest Rated">Mejor valorados</option>
+        <option value="Most Downloaded">Más descargados</option>
+        <option value="Newest">Más nuevos</option>
+      </select>
+      <select id="modPeriod" aria-label="Periodo">
+        <option value="Week">Semana</option>
+        <option value="Month">Mes</option>
+        <option value="Year">Año</option>
+        <option value="AllTime">Siempre</option>
+      </select>
+      <select id="modType" aria-label="Tipo de modelo">
+        <option value="">Todos</option>
+        <option value="Checkpoint">Checkpoint</option>
+        <option value="LORA">LoRA</option>
+        <option value="LoCon">LoCon</option>
+        <option value="DoRA">DoRA</option>
+        <option value="TextualInversion">Embedding</option>
+        <option value="Controlnet">ControlNet</option>
+        <option value="Poses">Poses</option>
+        <option value="Workflows">Workflows</option>
+        <option value="Upscaler">Upscaler</option>
+        <option value="VAE">VAE</option>
+        <option value="Wildcards">Wildcards</option>
+        <option value="Other">Otros</option>
+      </select>
+      <select id="modMedia" aria-label="Imágenes o vídeo">
+        <option value="all">Imagen y vídeo</option>
+        <option value="image">Solo imágenes</option>
+        <option value="video">Solo vídeo</option>
+      </select>
+      <button type="button" class="more-btn" data-more="models">Más filtros</button>
+    </div>
+    <div class="feed"></div>
+  </section>
+
+  <!-- Detalle de modelo / usuario (se rellenan dinámicamente) -->
+  <section id="view-detail" class="view" hidden></section>
+</main>
+
+<nav id="tabbar">
+  <a href="#/images" data-tab="images">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+    <span>Imágenes</span>
+  </a>
+  <a href="#/models" data-tab="models">
+    <svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M21 7l-9 5-9-5"/></svg>
+    <span>Modelos</span>
+  </a>
+</nav>
+
+<!-- Visor a pantalla completa -->
+<div id="viewer" hidden>
+  <div class="v-track"></div>
+  <div class="v-top">
+    <button class="icon-btn v-close" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="v-count"></span>
+    <button class="icon-btn v-info-btn" aria-label="Información"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
+  </div>
+  <div class="v-sheet" hidden></div>
+</div>
+
+<!-- Selector de nivel -->
+<dialog id="levelDlg">
+  <form method="dialog">
+    <h2>Contenido visible</h2>
+    <p class="note" style="margin:0 0 6px;text-align:left">Solo se muestra lo que marques.</p>
+    <label><input type="checkbox" name="lvl" value="1"> <b>Apto</b> <small>PG</small></label>
+    <label><input type="checkbox" name="lvl" value="2"> <b>Suave</b> <small>PG-13</small></label>
+    <label><input type="checkbox" name="lvl" value="4"> <b>Maduro</b> <small>R</small></label>
+    <label><input type="checkbox" name="lvl" value="24"> <b>X</b> <small>X / XXX</small></label>
+    <label class="check"><input type="checkbox" id="blurChk"> Difuminar contenido adulto hasta tocarlo</label>
+    <button value="ok">Listo</button>
+    <p class="note">Cliente no oficial. Usa la API pública de Civitai.</p>
+  </form>
+</dialog>
+
+<!-- Más filtros: imágenes -->
+<dialog id="imgFiltersDlg">
+  <form method="dialog">
+    <h2>Más filtros · Imágenes</h2>
+    <label class="field"><span>Modelo base</span>
+      <select name="baseModel"><option value="">Cualquiera</option></select></label>
+    <label class="field"><span>Orientación</span>
+      <select name="orient">
+        <option value="">Cualquiera</option>
+        <option value="v">Vertical</option>
+        <option value="h">Horizontal</option>
+        <option value="s">Cuadrada</option>
+      </select></label>
+    <label class="field"><span>Mínimo de reacciones</span>
+      <select name="minReact">
+        <option value="0">Sin mínimo</option>
+        <option value="10">10+</option>
+        <option value="50">50+</option>
+        <option value="200">200+</option>
+        <option value="1000">1000+</option>
+      </select></label>
+    <label class="field"><span>Texto en el prompt (separa con comas)</span>
+      <input type="text" name="promptHas" placeholder="p. ej. cyberpunk, neon" autocomplete="off"></label>
+    <label class="field"><span>Excluir si el prompt contiene</span>
+      <input type="text" name="promptNot" placeholder="p. ej. 3d, realistic" autocomplete="off"></label>
+    <label class="check"><input type="checkbox" name="onlyPrompt"> Solo imágenes con prompt</label>
+    <label class="field"><span>Usuarios ocultos (uno por línea)</span>
+      <textarea name="hidden" placeholder="usuario1&#10;usuario2"></textarea></label>
+    <div class="row-btns">
+      <button type="button" class="secondary" data-reset>Quitar filtros</button>
+      <button value="ok">Aplicar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Más filtros: modelos -->
+<dialog id="modFiltersDlg">
+  <form method="dialog">
+    <h2>Más filtros · Modelos</h2>
+    <label class="field"><span>Modelo base</span>
+      <select name="baseModel">
+        <option value="">Cualquiera</option>
+        <option>Illustrious</option>
+        <option>NoobAI</option>
+        <option>Pony</option>
+        <option>SDXL 1.0</option>
+        <option>SD 1.5</option>
+        <option>Flux.1 D</option>
+        <option>Flux.1 Kontext</option>
+        <option>Qwen</option>
+        <option>Chroma</option>
+        <option>HiDream</option>
+        <option>Wan Video</option>
+        <option>Hunyuan Video</option>
+        <option>Flux.2 D</option>
+        <option>Krea 2 Turbo</option>
+        <option value="ZImageTurbo">Z-Image Turbo</option>
+        <option>Anima</option>
+      </select></label>
+    <label class="field"><span>Mínimo de descargas</span>
+      <select name="minDl">
+        <option value="0">Sin mínimo</option>
+        <option value="100">100+</option>
+        <option value="1000">1.000+</option>
+        <option value="10000">10.000+</option>
+        <option value="100000">100.000+</option>
+      </select></label>
+    <label class="check"><input type="checkbox" name="noPaid"> Ocultar de pago / acceso anticipado</label>
+    <label class="check"><input type="checkbox" name="commercial"> Solo con uso comercial permitido</label>
+    <label class="field"><span>Creadores ocultos (uno por línea)</span>
+      <textarea name="hidden" placeholder="usuario1&#10;usuario2"></textarea></label>
+    <div class="row-btns">
+      <button type="button" class="secondary" data-reset>Quitar filtros</button>
+      <button value="ok">Aplicar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js?v=5"></script>
+</body>
+</html>
