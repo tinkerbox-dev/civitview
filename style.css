@@ -175,6 +175,17 @@ details.desc .body img { max-width: 100%; height: auto; border-radius: 8px; }
 .v-play.paused .i-play, .v-mute.on .i-sound { display: block; }
 .v-play .i-play { fill: currentColor; }
 .v-count { font-size: 13px; color: #ddd; }
+.v-right { display: flex; align-items: center; gap: 4px; }
+.v-fit {
+  border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.3); color: #fff; border-radius: 999px;
+  padding: 5px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+}
+.v-fit svg { width: 16px; height: 16px; }
+/* encuadre: bandas (por defecto), llenar ancho (corta arriba/abajo), llenar alto (corta los lados) */
+.v-slide { position: relative; }
+#viewer:not([data-fit="c"]) .v-slide img, #viewer:not([data-fit="c"]) .v-slide video { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+#viewer[data-fit="w"] .v-slide img, #viewer[data-fit="w"] .v-slide video { width: 100%; height: auto; max-width: none; max-height: none; }
+#viewer[data-fit="h"] .v-slide img, #viewer[data-fit="h"] .v-slide video { height: 100%; width: auto; max-width: none; max-height: none; }
 .v-sheet {
   position: absolute; inset: auto 0 0 0; max-height: 62vh; overflow-y: auto; touch-action: pan-y;
   background: rgba(20,21,26,.97); border-radius: 16px 16px 0 0; padding: 14px 14px calc(14px + var(--safe-b));

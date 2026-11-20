@@ -764,6 +764,24 @@ $('.v-mute').addEventListener('click', () => {
   };
   seek.addEventListener('pointerup', up); seek.addEventListener('pointercancel', up);
 })();
+// encuadre del visor: con bandas / llenar ancho / llenar alto
+const FITS = [
+  ['c', 'Bandas', '<rect x="3" y="6" width="18" height="12" rx="1"/><path d="M3 3h18M3 21h18"/>'],
+  ['w', 'Ancho', '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M7 12h10M7 12l3-3M7 12l3 3M17 12l-3-3M17 12l-3 3"/>'],
+  ['h', 'Alto', '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M12 7v10M12 7l-3 3M12 7l3 3M12 17l-3-3M12 17l3-3"/>'],
+];
+function showFit() {
+  const [k, label, path] = FITS.find(f => f[0] === S.fit) || FITS[0];
+  Viewer.el.dataset.fit = k;
+  $('.v-fit').innerHTML = `<svg viewBox="0 0 24 24">${path}</svg>${label}`;
+  $('.v-fit').setAttribute('aria-label', 'Encuadre: ' + label);
+}
+S.fit = store.get('fit', 'c');
+$('.v-fit').addEventListener('click', () => {
+  const i = FITS.findIndex(f => f[0] === S.fit);
+  S.fit = FITS[(i + 1) % FITS.length][0]; store.set('fit', S.fit); showFit();
+});
+showFit();
 $('.v-info-btn').addEventListener('click', () => { if (Viewer.sheet.hidden) Viewer.info(); else Viewer.sheet.hidden = true; });
 
 // gestos en el visor
